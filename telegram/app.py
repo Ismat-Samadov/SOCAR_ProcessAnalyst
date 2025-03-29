@@ -230,20 +230,66 @@ def webhook():
                 message_text = update.message.text if hasattr(update.message, 'text') else None
                 logger.info(f"Detected chat_id: {chat_id}, message: {message_text}")
                 
+                # Handle new chat members (user joined)
+                if hasattr(update.message, 'new_chat_members') and update.message.new_chat_members:
+                    logger.info("New chat member detected, sending welcome message")
+                    send_welcome_message(chat_id)
+                    return ''
+                
                 # Handle commands manually
                 if message_text == '/start':
                     logger.info("Detected /start command, handling directly")
-                    markup = types.ReplyKeyboardMarkup(row_width=2, resize_keyboard=True)
-                    item1 = types.KeyboardButton('Əsas Məlumatlar')
-                    item2 = types.KeyboardButton('Səmərəlilik Analizi')
-                    item3 = types.KeyboardButton('Enerji İstifadəsi')
-                    item4 = types.KeyboardButton('Ətraf Mühit Təsiri')
-                    item5 = types.KeyboardButton('Xərc Analizi')
-                    item6 = types.KeyboardButton('OpenAI Təhlili')
-                    
-                    markup.add(item1, item2, item3, item4, item5, item6)
-                    bot.send_message(chat_id, "Xoş gəlmisiniz! Lütfən, seçim edin:", reply_markup=markup)
+                    send_welcome_message(chat_id)
                     logger.info("Welcome message sent with keyboard")
+                
+                elif message_text == '/help':
+                    logger.info("Detected /help command")
+                    help_text = """
+SOCAR Process Analyst Bot - Kömək
+
+Bu bot SOCAR neft və qaz emalı prosesləri üzrə məlumatların təhlili və vizualizasiyası üçün yaradılmışdır.
+
+Mövcud əmrlər:
+/start - Botu başlatmaq və əsas menyunu göstərmək
+/help - Bu kömək mesajını göstərmək
+/summary - Əsas məlumatların xülasəsini göstərmək
+/menu - Əsas menyunu yenidən göstərmək
+
+Panel düymələri vasitəsilə aşağıdakı təhlilləri əldə edə bilərsiniz:
+- Əsas Məlumatlar: Proseslərin ümumi statistikası
+- Səmərəlilik Analizi: Proses tipinə görə səmərəlilik göstəriciləri
+- Enerji İstifadəsi: Enerji istifadəsi və emal həcmi arasında əlaqə
+- Ətraf Mühit Təsiri: CO2 emissiyalarının təhlili
+- Xərc Analizi: Əməliyyat xərclərinin təhlili
+- OpenAI Təhlili: Süni intellekt tərəfindən yaradılmış təhlil
+
+Əlavə məlumat üçün: ismetsemedov@gmail.com
+"""
+                    bot.send_message(chat_id, help_text)
+                    logger.info("Help information sent to user")
+                
+                elif message_text == '/menu' or message_text == '/keyboard':
+                    logger.info("Detected /menu command")
+                    show_main_menu(chat_id)
+                    logger.info("Main menu sent to user")
+                
+                elif message_text == '/summary':
+                    logger.info("Detected /summary command")
+                    bot.send_message(chat_id, "Əsas məlumatlar yüklənir...")
+                    
+                    try:
+                        data = load_data()
+                        if data is None:
+                            bot.send_message(chat_id, "Məlumatların yüklənməsində xəta baş verdi.")
+                            return ''
+                        
+                        summary = generate_data_summary(data)
+                        bot.send_message(chat_id, summary)
+                        logger.info("Summary sent to user")
+                    except Exception as e:
+                        logger.error(f"Error processing data: {e}")
+                        logger.error(traceback.format_exc())
+                        bot.send_message(chat_id, f"Məlumatların emalında xəta: {str(e)}")
                 
                 elif message_text == 'Əsas Məlumatlar':
                     logger.info("Handling 'Əsas Məlumatlar' request")
@@ -375,8 +421,8 @@ def webhook():
                         bot.send_message(chat_id, f"Təhlil yaradılarkən xəta: {str(e)}")
                 
                 else:
-                    # Default response
-                    bot.send_message(chat_id, f"'{message_text}' əmri tanınmadı. Zəhmət olmasa panel düymələrindən istifadə edin.")
+                    # Default response for unknown commands
+                    bot.send_message(chat_id, f"'{message_text}' əmri tanınmadı. Kömək üçün /help yazın və ya panel düymələrindən istifadə edin.")
                     logger.info(f"Sent default response for: {message_text}")
             
             return ''
@@ -387,6 +433,41 @@ def webhook():
         logger.error(f"Error in webhook processing: {e}")
         logger.error(traceback.format_exc())
         return '', 500
+
+# Helper functions for the bot
+def send_welcome_message(chat_id):
+    """Send welcome message with bot information and show the main menu"""
+    welcome_text = """
+🔍 *SOCAR Process Analyst Bot*-a xoş gəlmisiniz!
+
+Bu bot SOCAR neft və qaz emalı prosesləri üzrə məlumatların təhlili və vizualizasiyası üçün yaradılmışdır.
+
+✅ *Nə edə bilər?*
+• Proses səmərəliliyini analiz etmək
+• Enerji istifadəsini vizuallaşdırmaq
+• Ətraf mühitə təsiri ölçmək
+• Əməliyyat xərclərini təhlil etmək
+• AI təhlili ilə əlavə insights təqdim etmək
+
+Daha ətraflı məlumat üçün /help yazın.
+"""
+    
+    bot.send_message(chat_id, welcome_text, parse_mode='Markdown')
+    show_main_menu(chat_id)
+
+def show_main_menu(chat_id):
+    """Display the main menu keyboard"""
+    markup = types.ReplyKeyboardMarkup(row_width=2, resize_keyboard=True)
+    item1 = types.KeyboardButton('Əsas Məlumatlar')
+    item2 = types.KeyboardButton('Səmərəlilik Analizi')
+    item3 = types.KeyboardButton('Enerji İstifadəsi')
+    item4 = types.KeyboardButton('Ətraf Mühit Təsiri')
+    item5 = types.KeyboardButton('Xərc Analizi')
+    item6 = types.KeyboardButton('OpenAI Təhlili')
+    
+    markup.add(item1, item2, item3, item4, item5, item6)
+    bot.send_message(chat_id, "Lütfən, analiz növünü seçin:", reply_markup=markup)
+
 
 # Health check endpoints
 @app.route('/health', methods=['GET'])
