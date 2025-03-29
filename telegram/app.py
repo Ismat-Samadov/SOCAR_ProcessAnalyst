@@ -37,7 +37,46 @@ if not TELEGRAM_TOKEN:
     TELEGRAM_TOKEN = "test"
 
 bot = telebot.TeleBot(TELEGRAM_TOKEN)
+# Add this near the beginning of your app.py file, after bot initialization:
 
+# Define bot commands
+bot_commands = [
+    types.BotCommand("start", "Botu başlatmaq və əsas menyunu göstərmək"),
+    types.BotCommand("help", "Kömək məlumatı almaq"),
+    types.BotCommand("menu", "Əsas menyunu göstərmək"),
+    types.BotCommand("summary", "Əsas məlumatların xülasəsini göstərmək")
+]
+
+# If in production mode, set commands when setting webhook
+# Add this to your production setup in if __name__ == '__main__':
+if os.environ.get('ENVIRONMENT') == 'production':
+    # Remove any existing webhook first
+    bot.remove_webhook()
+    time.sleep(0.5)  # Give Telegram servers some time to process
+    
+    # Set commands
+    try:
+        bot.set_my_commands(bot_commands)
+        logger.info("Bot commands set successfully")
+    except Exception as e:
+        logger.error(f"Error setting bot commands: {e}")
+    
+    # Set webhook
+    url = os.environ.get('APP_URL', '')
+    if url:
+        webhook_url = f"{url}/{TELEGRAM_TOKEN}"
+        bot.set_webhook(url=webhook_url)
+        logger.info(f"Webhook set to {webhook_url}")
+    else:
+        logger.error("APP_URL environment variable not set")
+else:
+    # For development, set commands in polling mode
+    try:
+        bot.set_my_commands(bot_commands)
+        logger.info("Bot commands set successfully")
+    except Exception as e:
+        logger.error(f"Error setting bot commands: {e}")
+        
 # Load the data - check both locations
 def load_data():
     try:
@@ -504,6 +543,14 @@ if __name__ == '__main__':
         if url:
             webhook_url = f"{url}/{TELEGRAM_TOKEN}"
             bot.set_webhook(url=webhook_url)
+            
+            try:
+                # Set menu button to commands
+                bot.set_chat_menu_button(menu_button=types.MenuButtonCommands())
+                logger.info("Menu button set to commands")
+            except Exception as e:
+                logger.error(f"Error setting menu button: {e}")
+            
             logger.info(f"Webhook set to {webhook_url}")
         else:
             logger.error("APP_URL environment variable not set")
